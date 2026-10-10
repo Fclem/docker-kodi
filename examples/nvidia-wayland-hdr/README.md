@@ -103,6 +103,15 @@ What still does **not** work:
   Kodi-native HDR is not a flag flip.
 * **Kodi 21 cannot signal HDR over Wayland** — its `wp_color_manager_v1` path is
   Kodi 22/master only.
+* **Kodi on this Wayland stack hangs on 4K HDR titles.** Opening one leaves
+  `kodi.bin` alive but unresponsive — the EventServer logs
+  `ES: Client … timed out` and remote apps get nothing back. Kodi's log ends at
+  `VAAPI/vpp vaCreateConfig error: the requested VAProfile is not supported (12)`:
+  it asks nvidia-vaapi-driver for HEVC Main10 **VPP** (video post-processing),
+  which that driver does not implement; the render path then never starts. The
+  same file plays fine on an X11/VAAPI Kodi (SDR output). Practical split on
+  this box: **Kodi (X11) for everything, mpv on DRM for HDR titles** — which is
+  what `kodi-playercorefactory.xml` was routing to before it was disabled.
 
 For HDR with Kodi's own UI on screen, use a compositor that sets
 `HDR_OUTPUT_METADATA` itself: KWin/Plasma does, given
@@ -115,8 +124,8 @@ The entry point supports `KODI_COMPOSITOR=kwin` for that.
 | File | Purpose |
 | --- | --- |
 | `Dockerfile` | Ubuntu 26.04 + Kodi 21.3 + weston + kwin-wayland + mpv (+ `nvidia-vaapi-driver`) |
-| `kodi-wayland-entrypoint.sh` | creates `/dev/nvidia-modeset`, starts `seatd` and a compositor (weston by default, or KWin with `KODI_COMPOSITOR=kwin`; both pinned to the NVIDIA card, no-input allowed, socket auto-detected), runs Kodi unprivileged (uid 568), clean SIGTERM |
-| `weston.ini` | kiosk settings; colour management documented as disabled (see above) |
+| `kodi-wayland-entrypoint.sh` | creates `/dev/nvidia-modeset`, starts `seatd` and a compositor (weston by default — with `--shell=kiosk`, since the default desktop shell paints a status panel over the picture — or KWin with `KODI_COMPOSITOR=kwin`; both pinned to the NVIDIA card, no-input allowed, socket auto-detected), runs Kodi unprivileged (uid 568), clean SIGTERM |
+| `weston.ini` | kiosk settings (never blank, black background); colour management documented as disabled (see above) |
 | `mpv.conf`, `mpv-hdr` | HDR player: `--vo=gpu-next`, `target-colorspace-hint`, VA-API decode |
 | `kodi-playercorefactory.xml` | routes 2160p/HDR/DoVi files to mpv, everything else stays in Kodi |
 | `advancedsettings.xml`, `sources.xml.example` | seeded only when the profile has no copy |

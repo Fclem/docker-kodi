@@ -76,8 +76,10 @@ if [ "$COMPOSITOR" = "kwin" ]; then
     COMPOSITOR_LOG="$KWIN_LOG"
 else
     echo "[kodi-wayland] starting weston on the DRM backend (device: ${NVIDIA_CARD})"
+    # --shell=kiosk: weston's default desktop shell paints a status panel
+    # (clock + launcher icon) over the TV picture.  Kodi is the only client.
     weston --backend=drm --drm-device="$NVIDIA_CARD" --continue-without-input \
-           --renderer=gl --log="$WESTON_LOG" &
+           --shell=kiosk --renderer=gl --log="$WESTON_LOG" &
     COMPOSITOR_LOG="$WESTON_LOG"
 fi
 
