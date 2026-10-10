@@ -127,7 +127,7 @@ The entry point supports `KODI_COMPOSITOR=kwin` for that.
 | `kodi-wayland-entrypoint.sh` | creates `/dev/nvidia-modeset`, starts `seatd` and a compositor (weston by default — with `--shell=kiosk`, since the default desktop shell paints a status panel over the picture — or KWin with `KODI_COMPOSITOR=kwin`; both pinned to the NVIDIA card, no-input allowed, socket auto-detected), runs Kodi unprivileged (uid 568), clean SIGTERM |
 | `weston.ini` | kiosk settings (never blank, black background); colour management documented as disabled (see above) |
 | `mpv.conf`, `mpv-hdr` | HDR player: `--vo=gpu-next`, `target-colorspace-hint`, VA-API decode |
-| `kodi-playercorefactory.xml` | routes 2160p/HDR/DoVi files to mpv, everything else stays in Kodi |
+| `kodi-playercorefactory.xml` | routes 2160p/HDR/DoVi files to mpv, everything else stays in Kodi — **not seeded** by the entry point: drop it into `userdata/` deliberately if you want the hand-off. If it is active while the helper script is missing from the image, Kodi forks a non-existent binary (`exit 127`) and *nothing* plays |
 | `advancedsettings.xml`, `sources.xml.example` | seeded only when the profile has no copy |
 | `docker-compose.example.yml` | devices, cgroup rule, cap_add, the SSDP sidecar |
 

@@ -30,7 +30,12 @@ chmod 666 /dev/nvidia-modeset
 # --- profile + seeds ------------------------------------------------------
 mkdir -p /data/.kodi/temp /data/.kodi/userdata
 chown -R ${UID_GID}:${UID_GID} /data
-for f in advancedsettings.xml sources.xml playercorefactory.xml; do
+# playercorefactory.xml is deliberately NOT seeded: its external-player rule
+# hands every 2160p/HDR filename to a helper script, and re-seeding it on each
+# restart silently re-arms that hand-off (it bit us once: the script was absent
+# from the image, Kodi forked it, got exit 127, and nothing played at all).
+# The hand-off is opt-in, on request only.
+for f in advancedsettings.xml sources.xml; do
     [ -f "/usr/share/kodi-seed/$f" ] || continue
     [ -f "/data/.kodi/userdata/$f" ] || cp "/usr/share/kodi-seed/$f" "/data/.kodi/userdata/$f"
     chown ${UID_GID}:${UID_GID} "/data/.kodi/userdata/$f"
