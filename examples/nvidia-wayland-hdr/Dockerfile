@@ -28,6 +28,7 @@ RUN set -eux; \
     ( apt-get install -y -qq --no-install-recommends \
         kodi kodi-inputstream-adaptive \
         weston seatd \
+        kwin-wayland kwin-common kscreen dbus-x11 \
         mpv nvidia-vaapi-driver \
         libgbm1 libegl1 libgl1 libgles2 libegl-mesa0 \
         dbus alsa-utils util-linux tzdata ca-certificates bash \

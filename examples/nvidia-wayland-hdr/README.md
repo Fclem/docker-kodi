@@ -57,43 +57,65 @@ GL_RENDERER = NVIDIA GeForce RTX 2070/PCIe/SSE2
    entry point checks first and degrades gracefully instead of refusing to start
    Kodi.
 
-## HDR status
+## HDR status: works, through `HDR_OUTPUT_METADATA`
 
-The driver and the panel are ready — weston reports the connector's
-capabilities:
+Two things are true at different times, and the difference is worth knowing.
+
+* **NVIDIA's 610 `nvidia-drm` does implement `HDR_OUTPUT_METADATA`** (plus
+  `Colorspace` and `dithering mode`), even on a 6.12 kernel. The per-plane DRM
+  *color pipeline* API that NVIDIA's notes say needs kernel >= 6.19 is a
+  separate, newer mechanism; HDR signalling does not depend on it.
+* **You only see it once the matching kernel module is actually loaded.**
+  Reading the connector while an *older* `nvidia-drm` module is still resident
+  shows only NVIDIA's vendor properties (`NV_HDR_STATIC_METADATA`,
+  `NV_INPUT_COLORSPACE`) and none of the upstream ones. That trap cost real time
+  here: `HDR_OUTPUT_METADATA` appeared on the connector only after the rebuilt
+  sysext put the 610 module in place.
+
+With that loaded, **mpv signals HDR10 correctly**. Verified on a 4K HDR10 film,
+reading the connector back while it played:
 
 ```
-DRM: head 'HDMI-A-1' found, connector 132 is connected, EDID make 'Samsung Electric Company'
-     Supported EOTF modes: SDR, ST2084, HLG
-     Supported colorimetry modes: default, BT.2020 (YCC), BT.2020 (RGB)
+prop Colorspace          value=9  (BT2020_RGB)
+prop HDR_OUTPUT_METADATA value=<32-byte blob>: eotf=2 (ST2084/PQ), BT.2020 primaries,
+                         mastering 1000 cd/m2, CLL 1163 / FALL 256
+mpv: Selected mode: 3840x2160 (3840x2160@23.98Hz)
+mpv: VAAPI driver: VA-API NVDEC driver [direct backend]
 ```
 
-but **weston's colour management does not work on this driver**, so this example
-currently outputs **SDR**:
+and the TV switches into HDR (confirmed on the panel). The recipe is mpv on
+DRM/KMS with no compositor in the path:
 
 ```
-color-lcms: error: color operations capability missing. Is GL-renderer not in use?
+mpv --vo=gpu-next --gpu-context=drm --drm-device=/dev/dri/cardN \
+    --drm-connector=HDMI-A-1 --drm-mode=3840x2160@23.976 \
+    --target-colorspace-hint=yes --hwdec=vaapi --fs <file>
 ```
 
-NVIDIA's GLES renderer reports `glReadPixels supports y-flip: no`, which weston's
-color-lcms module requires — `color-management=true` (and therefore
-`[output] eotf=st2084`) is unusable. A colour-managed compositor that *does* work
-on `nvidia-drm` is KWin/Plasma: NVIDIA added the DRM color pipeline in the 610
-branch precisely so compositors can drive HDR. Swapping weston for KWin is the
-next step; `weston.ini` and `mpv.conf` keep the intended HDR settings commented
-and documented.
+What still does **not** work:
 
-For the same reason Kodi itself cannot signal HDR here (its `wp_color_manager_v1`
-path exists only in Kodi 22/master), which is why 4K/HDR files are handed to mpv
-via `playercorefactory.xml` — mpv speaks `color-management-v1` and does the HDR
-part as soon as a working colour-managed compositor is in place.
+* **weston** cannot do HDR here: its colour management (`color-management=true`,
+  which `[output] eotf=` requires) aborts with
+  `color-lcms: error: color operations capability missing`, because NVIDIA's GLES
+  renderer has no y-flip readback. The compositor in this example is therefore an
+  SDR pipe.
+* **Kodi's own DRM/GBM path segfaults** on this stack (crashlog written), so
+  Kodi-native HDR is not a flag flip.
+* **Kodi 21 cannot signal HDR over Wayland** — its `wp_color_manager_v1` path is
+  Kodi 22/master only.
+
+For HDR with Kodi's own UI on screen, use a compositor that sets
+`HDR_OUTPUT_METADATA` itself: KWin/Plasma does, given
+`KWIN_FORCE_ASSUME_HDR_SUPPORT=1` and `KWIN_DRM_ALLOW_NVIDIA_COLORSPACE=1`
+(nvidia-drm exposes no `max_bpc`, which is KWin's normal HDR capability check).
+The entry point supports `KODI_COMPOSITOR=kwin` for that.
 
 ## Layout
 
 | File | Purpose |
 | --- | --- |
-| `Dockerfile` | Ubuntu 26.04 + Kodi 21.3 + weston + mpv (+ `nvidia-vaapi-driver`) |
-| `kodi-wayland-entrypoint.sh` | creates `/dev/nvidia-modeset`, starts `seatd` + weston (pinned to the NVIDIA card, no-input allowed), runs Kodi unprivileged (uid 568), clean SIGTERM |
+| `Dockerfile` | Ubuntu 26.04 + Kodi 21.3 + weston + kwin-wayland + mpv (+ `nvidia-vaapi-driver`) |
+| `kodi-wayland-entrypoint.sh` | creates `/dev/nvidia-modeset`, starts `seatd` and a compositor (weston by default, or KWin with `KODI_COMPOSITOR=kwin`; both pinned to the NVIDIA card, no-input allowed, socket auto-detected), runs Kodi unprivileged (uid 568), clean SIGTERM |
 | `weston.ini` | kiosk settings; colour management documented as disabled (see above) |
 | `mpv.conf`, `mpv-hdr` | HDR player: `--vo=gpu-next`, `target-colorspace-hint`, VA-API decode |
 | `kodi-playercorefactory.xml` | routes 2160p/HDR/DoVi files to mpv, everything else stays in Kodi |
