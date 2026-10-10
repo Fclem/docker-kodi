@@ -1,0 +1,22 @@
+<playercorefactory>
+    <!--
+        Kodi stays the library/UI player for everything it can handle natively.
+        4K/HDR/DoVi material is handed to mpv, because Kodi 21 (and every distro
+        build of it) cannot signal HDR on Linux at all: its HDR output lives in
+        the GBM/DRM-PRIME path (needs HDR_OUTPUT_METADATA, absent from
+        nvidia-drm) and in the Wayland color-management path (Kodi 22/master
+        only).  mpv speaks color-management-v1, so the weston compositor can put
+        the TV into HDR for it.
+    -->
+    <players>
+        <player name="mpv-hdr" type="ExternalPlayer" audio="false" video="true">
+            <filename>/usr/local/bin/mpv-hdr</filename>
+            <args>"{1}"</args>
+            <hidexbmc>true</hidexbmc>
+            <hideconsole>true</hideconsole>
+        </player>
+    </players>
+    <rules action="prepend">
+        <rule filename=".*(2160p|4K|UHD|HDR|DV[. ]).*" player="mpv-hdr"/>
+    </rules>
+</playercorefactory>
