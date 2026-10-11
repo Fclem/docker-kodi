@@ -122,6 +122,26 @@ What still does **not** work:
   that NVIDIA does not expose. `VAAPI EGL interop` does advertise `p010le`, but
   the renderer chosen is `LinuxRendererGLES`, never `RendererDRMPRIME` — that one
   needs a DRM-PRIME hwdec, which this VA-API→GL interop path is not.
+* **SOLVED with a patch and a setting: HDR works from Kodi's own UI on this GPU.**
+  Kodi 22 built with `-DAPP_RENDER_SYSTEM=gles` and started with
+  `kodi --windowing=gbm` (no compositor at all), plus two changes:
+  1. a ~10-line patch to `WinSystemGbmEGLContext::SetVideoOutput`: if the 10-bit
+     EGL config does not exist (NVIDIA's GBM/EGL has none), fall back to an
+     8-bit config and *continue* instead of returning false. It logs
+     `no 10-bit EGL config; using 8-bit output, HDR signalling kept`.
+  2. `winsystem.ishdrdisplay` must be true. Nothing derives it from the EDID
+     detection (which does report `supports hdr static metadata type1: true`),
+     and a fresh profile defaults it false, so `CWinSystemGbm::SetHDR` returns
+     early and the metadata is never published. Set it via
+     `Settings.SetSettingValue` (or the UI); a pre-seeded `guisettings.xml`
+     needs the right schema version (v4 here) to survive startup.
+  With both, playback sets `Colorspace=BT2020_RGB` and populates
+  `HDR_OUTPUT_METADATA` (verified: blob `000000000200d084803ec233c4864c1d`),
+  with Kodi's own UI on screen - no mpv hand-off, no compositor.
+  Quality caveats remaining: the output surface is 8-bit and the decode is NV12
+  (nvidia-vaapi-driver refuses the HEVC Main10 VPP config), which is what
+  PR #27831 (NVDEC + P010 rendering) would improve.
+
 * **Kodi on this Wayland stack hangs on 4K HDR titles.** Opening one leaves
   `kodi.bin` alive but unresponsive — the EventServer logs
   `ES: Client … timed out` and remote apps get nothing back. Kodi's log ends at
