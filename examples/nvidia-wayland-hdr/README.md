@@ -101,8 +101,16 @@ What still does **not** work:
   SDR pipe.
 * **Kodi's own DRM/GBM path segfaults** on this stack (crashlog written), so
   Kodi-native HDR is not a flag flip.
-* **Kodi 21 cannot signal HDR over Wayland** — its `wp_color_manager_v1` path is
-  Kodi 22/master only.
+* **Kodi 22 + KWin still does not produce HDR output on this driver.** Kodi 22
+  RC1 (built from source for the test) *does* run under KWin on this GPU and logs
+  `LinuxRendererGLES::Configure: HDR passthrough active`, and KWin advertises
+  `wp_color_manager_v1` and sets `Colorspace=BT2020_RGB` on the HDMI connector.
+  But Kodi then reports `GUI compositing not supported by windowing system` and
+  never publishes an HDR image description, so `HDR_OUTPUT_METADATA` stays empty
+  and the TV does not switch. HDR from Kodi's own UI needs a compositor that can
+  composite GLES clients in HDR on NVIDIA — so this is a compositor-side gap, not
+  a Kodi one. mpv on DRM/KMS (no compositor in the path) remains the working
+  route, and that is what `hdr-play` uses.
 * **Kodi on this Wayland stack hangs on 4K HDR titles.** Opening one leaves
   `kodi.bin` alive but unresponsive — the EventServer logs
   `ES: Client … timed out` and remote apps get nothing back. Kodi's log ends at
