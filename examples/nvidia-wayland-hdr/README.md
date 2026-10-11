@@ -138,9 +138,32 @@ What still does **not** work:
   With both, playback sets `Colorspace=BT2020_RGB` and populates
   `HDR_OUTPUT_METADATA` (verified: blob `000000000200d084803ec233c4864c1d`),
   with Kodi's own UI on screen - no mpv hand-off, no compositor.
-  Quality caveats remaining: the output surface is 8-bit and the decode is NV12
-  (nvidia-vaapi-driver refuses the HEVC Main10 VPP config), which is what
-  PR #27831 (NVDEC + P010 rendering) would improve.
+  Quality caveats remaining: the output surface is 8-bit. PR #27831 (NVDEC +
+  P010 rendering) was rebased onto this stack and **verified working** — the
+  decode half is no longer NV12:
+
+  ```
+  CDVDVideoCodecNVDEC::Open() - Using decoder 'hevc' with nvdec hwaccel
+  CDVDVideoCodecNVDEC::Open() - nvdec hwaccel decoder opened successfully (ff-hevc-nvdec)
+  NVDEC: get_format selecting AV_PIX_FMT_CUDA
+  ```
+
+  That replaces `ff-hevc-vaapi` + NV12, and the
+  `VAAPI/vpp vaCreateConfig error: the requested VAProfile is not supported (12)`
+  is gone — the VPP is no longer in the path. Note this is a **port, not the
+  upstream diff verbatim**: PR #27831 sits on a newer master where
+  `GetPicture()` was split into `ProcessDecodedFrame()` / `ProcessFilterGraph()`,
+  and that split (commit `244f3ca77`) is not in Piers. Applying the PR's `#ifdef`
+  on top of Piers needs the two declarations re-added to
+  `DVDVideoCodecFFmpeg.h` and the P010 texture helpers to `LinuxRendererGLES.h`.
+  Cherry-pick the 8 PR commits **first**, then that helper-split commit, or the
+  later patches fail to apply.
+
+  Net result: **10-bit decode → 10-bit render → 8-bit scanout**, with HDR10
+  signalling on the connector (`Colorspace=9` / BT2020_RGB during playback,
+  cleared to 0 on stop). There is still no 10-bit *output* on this GPU —
+  NVIDIA's GBM/EGL exposes no 10-bit EGL config, which mpv over DRM/KMS hits
+  too — so "true 10-bit HDR" end to end is not achievable here.
 
   A deployable image for this path is built from `Dockerfile-gbm` plus
   `kodi-gbm-entrypoint.sh`. The entry point runs `kodi --windowing=gbm` with no
