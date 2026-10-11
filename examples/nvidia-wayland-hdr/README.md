@@ -142,6 +142,14 @@ What still does **not** work:
   (nvidia-vaapi-driver refuses the HEVC Main10 VPP config), which is what
   PR #27831 (NVDEC + P010 rendering) would improve.
 
+  A deployable image for this path is built from `Dockerfile-gbm` plus
+  `kodi-gbm-entrypoint.sh`. The entry point runs `kodi --windowing=gbm` with no
+  compositor and applies `winsystem.ishdrdisplay=true` over JSON-RPC on every
+  start (the setting is lost on a fresh or reset profile, and nothing derives it
+  from the EDID). Verified on a fresh profile with no manual steps: playback set
+  `Colorspace=BT2020_RGB` and published `HDR_OUTPUT_METADATA`
+  (`000000000200d084803ec233c4864c1d`).
+
 * **Kodi on this Wayland stack hangs on 4K HDR titles.** Opening one leaves
   `kodi.bin` alive but unresponsive — the EventServer logs
   `ES: Client … timed out` and remote apps get nothing back. Kodi's log ends at
