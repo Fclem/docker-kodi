@@ -101,16 +101,19 @@ What still does **not** work:
   SDR pipe.
 * **Kodi's own DRM/GBM path segfaults** on this stack (crashlog written), so
   Kodi-native HDR is not a flag flip.
-* **Kodi 22 + KWin still does not produce HDR output on this driver.** Kodi 22
-  RC1 (built from source for the test) *does* run under KWin on this GPU and logs
-  `LinuxRendererGLES::Configure: HDR passthrough active`, and KWin advertises
-  `wp_color_manager_v1` and sets `Colorspace=BT2020_RGB` on the HDMI connector.
-  But Kodi then reports `GUI compositing not supported by windowing system` and
-  never publishes an HDR image description, so `HDR_OUTPUT_METADATA` stays empty
-  and the TV does not switch. HDR from Kodi's own UI needs a compositor that can
-  composite GLES clients in HDR on NVIDIA — so this is a compositor-side gap, not
-  a Kodi one. mpv on DRM/KMS (no compositor in the path) remains the working
-  route, and that is what `hdr-play` uses.
+* **Kodi 22's own GBM backend gets closest, and shows the gap is the driver.**
+  `kodi --windowing=gbm` — no compositor at all — *runs* on Kodi 22 (the Kodi 21
+  segfault is genuinely fixed), uses the GPU directly, reads the TV's
+  `supports hdr static metadata type1: true`, and during playback sets
+  `Colorspace=BT2020_RGB` on the connector itself. It then fails at the final
+  step: `CWinSystemGbmEGLContext::SetVideoOutput: failed to choose EGL config for
+  10-bit`. That function rebuilds the output surface to AR30 and its own comment
+  names amdgpu; NVIDIA's GBM/EGL exposes no 10-bit config, so
+  `HDR_OUTPUT_METADATA` is never published. So this is not a compositor gap:
+  Kodi's Wayland backend does not implement `SetGuiCompositing` at all (only the
+  GBM backends do), which is why no compositor can satisfy it, and removing the
+  compositor still lands on NVIDIA's GBM. mpv on DRM/KMS sidesteps both by
+  driving the DRM plane and the metadata blob directly — which is why it works.
 * **Kodi on this Wayland stack hangs on 4K HDR titles.** Opening one leaves
   `kodi.bin` alive but unresponsive — the EventServer logs
   `ES: Client … timed out` and remote apps get nothing back. Kodi's log ends at
