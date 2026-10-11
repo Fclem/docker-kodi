@@ -114,6 +114,14 @@ What still does **not** work:
   GBM backends do), which is why no compositor can satisfy it, and removing the
   compositor still lands on NVIDIA's GBM. mpv on DRM/KMS sidesteps both by
   driving the DRM plane and the metadata blob directly — which is why it works.
+  Debug logging on the GBM run names both driver-side blockers: the hwdec is
+  `ff-hevc-vaapi` and the decoder hands back **NV12** (`GLES: using shader
+  format: NV12`) instead of a 10-bit surface, because the driver refuses the VPP
+  config for HEVC Main10 (`VAAPI/vpp vaCreateConfig error: the requested
+  VAProfile is not supported (12)`); and Kodi still asks for a 10-bit EGL config
+  that NVIDIA does not expose. `VAAPI EGL interop` does advertise `p010le`, but
+  the renderer chosen is `LinuxRendererGLES`, never `RendererDRMPRIME` — that one
+  needs a DRM-PRIME hwdec, which this VA-API→GL interop path is not.
 * **Kodi on this Wayland stack hangs on 4K HDR titles.** Opening one leaves
   `kodi.bin` alive but unresponsive — the EventServer logs
   `ES: Client … timed out` and remote apps get nothing back. Kodi's log ends at
