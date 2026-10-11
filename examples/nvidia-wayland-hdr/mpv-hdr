@@ -1,0 +1,9 @@
+#!/bin/sh
+# Launched by Kodi (playercorefactory.xml) for 4K/HDR/DoVi files.
+#
+# Kodi runs this as the unprivileged user (uid 568) and its environment already
+# points at the Wayland session, so all this does is make sure the compositor
+# socket and mpv's config are found.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/kodi-xdg}"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+exec /usr/bin/mpv --config-dir=/etc/mpv "$@"

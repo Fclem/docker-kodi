@@ -1,0 +1,66 @@
+# Example: Kodi on Wayland with HDR output on an NVIDIA GPU.
+#
+# The compositor (weston) owns the display and drives HDR10; Kodi is a Wayland
+# client and hands 4K/HDR/DoVi files to mpv, which speaks color-management-v1.
+# Adjust devices, paths and TZ to your host.
+services:
+  # Kodi's libPlatinum joins the SSDP group 239.255.255.250 on EVERY host
+  # interface.  The kernel's default limit of 20 memberships per socket makes
+  # JoinGroup fail with ENOBUFS, and Platinum then aborts UPnP initialisation
+  # entirely -> no DLNA discovery.  net.* sysctls cannot be set through compose
+  # `sysctls:` in host network mode, hence this small privileged helper.
+  sysctl-init:
+    image: docker:cli
+    container_name: kodi-sysctl-init
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo 256 > /proc/sys/net/ipv4/igmp_max_memberships
+        exec sleep 100000000
+    healthcheck:
+      test: ["CMD-SHELL", "test \"$$(cat /proc/sys/net/ipv4/igmp_max_memberships)\" -ge 64"]
+      interval: 5s
+      retries: 12
+
+  kodi:
+    image: kodi-tv:21.3-wayland
+    container_name: kodi
+    init: true
+    restart: unless-stopped
+    runtime: nvidia                  # requires nvidia-container-toolkit
+    network_mode: host               # required for SSDP/DLNA (multicast)
+    depends_on:
+      sysctl-init:
+        condition: service_healthy
+    # NET_ADMIN is needed for libPlatinum's SSDP multicast join; without cap_add
+    # the entry point's `setpriv --ambient-caps` fails with EPERM.
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - TZ=Europe/Berlin
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    devices:
+      - /dev/dri/card1               # adjust to your GPU nodes
+      - /dev/dri/renderD128
+      - /dev/tty0                    # the compositor's seat needs a VT:
+      - /dev/tty1                    #   there is no logind inside the container
+      - /dev/snd
+    device_cgroup_rules:
+      - "c 195:254 rwm"              # /dev/nvidia-modeset, created by the entry point
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, compute, video, graphics, utility]
+    volumes:
+      - /srv/kodi/data-omega:/data   # Kodi profile (per Kodi version!)
+      - /srv/media:/media:ro
+      - /srv/recorded:/recorded:ro

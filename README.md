@@ -6,7 +6,8 @@ Fork of [`ehough/docker-kodi`](https://github.com/ehough/docker-kodi), used to r
 | | |
 | --- | --- |
 | Upstream | `ehough/docker-kodi`, default branch `master` |
-| Deployment branch | `example/nvidia-xorg-vaapi-kodi21` — proposed upstream as [PR #56](https://github.com/ehough/docker-kodi/pull/56) |
+| SDR deployment (runs today) | `example/nvidia-xorg-vaapi-kodi21` — proposed upstream as [PR #56](https://github.com/ehough/docker-kodi/pull/56): Xorg in the container, NVDEC via VA-API for 10-bit HEVC decode, SDR output |
+| Wayland deployment (SDR today) | branch `example/nvidia-wayland-hdr`: Kodi as a **Wayland client** under **weston** on the NVIDIA GPU (4K surface, VA-API decode), with **mpv** wired in for 4K/HDR files. HDR *output* is not live yet: weston's colour management aborts on NVIDIA (`color-lcms: color operations capability missing`), so the pipe is SDR. The compositor that works on `nvidia-drm` is KWin/Plasma (driver **≥ 610.43.02**). Details in the example README |
 | `master` here | upstream `master` + this README |
 
 Upstream's documentation is preserved verbatim at the bottom of this file.
