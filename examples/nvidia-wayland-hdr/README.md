@@ -150,6 +150,19 @@ What still does **not** work:
   `Colorspace=BT2020_RGB` and published `HDR_OUTPUT_METADATA`
   (`000000000200d084803ec233c4864c1d`).
 
+  Two deployment traps worth knowing:
+
+  * **The webserver port comes from the profile** (`advancedsettings.xml` uses
+    8083 here, not Kodi's default 8080), so a bootstrap that assumes 8080
+    silently does nothing.
+  * **The UPnP/DLNA flags live in TWO files and `advancedsettings.xml` wins.**
+    `<services><upnpserver>` there silently overrides
+    `<setting id="services.upnpserver">` in `guisettings.xml`; fixing only
+    guisettings looks correct and leaves the server running. Kodi's log shows
+    the truth at startup: `starting upnp client` / `starting upnp server` /
+    `starting upnp renderer`. Also note Kodi's DLNA *client* is gated on the
+    master `services.upnp`, so the master must stay true for browsing to work.
+
 * **Kodi on this Wayland stack hangs on 4K HDR titles.** Opening one leaves
   `kodi.bin` alive but unresponsive — the EventServer logs
   `ES: Client … timed out` and remote apps get nothing back. Kodi's log ends at
